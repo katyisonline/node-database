@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="style.css" rel="stylesheet">
+    <title>Customer Database</title>
+
+</head>
+
+<body>
+    <fieldset>
+        <legend>Customer Database</legend>
+
+        <label for="customerNum">Customer #</label>
+        <input type="text" id="customerNum" name="customerNum">
+
+        <label for="firstName">First Name</label>
+        <input type="text" id="firstName" name="firstName">
+
+        <label for="lastName">Last Name</label>
+        <input type="text" id="lastName" name="lastName">
+
+        <label for="address">Address</label>
+        <input type="text" id="address" name="address">
+
+        <label for="city">City</label>
+        <input type="text" id="city" name="city">
+
+        <label for="province">Province</label>
+        <input type="text" id="province" name="province">
+
+        <label for="postCode">Postal </label>
+        <input type="text" id="postCode" name="postCode">
+
+
+
+        <div></div>
+        <div id="buttonGrid">
+            <button type="button" value="new" id="new">new</button>
+            <button type="button" value="add" id="add">add</button>
+            <button type="button" value="update" id="update">update</button>
+            <button type="button" value="delete" id="delete">delete</button>
+            <button type="button" value="find" id="find">find</button>
+        </div>
+    </fieldset>
+
+    <script>
+        // textbox array for easy clearing
+        let textBox = [$("#customerNum"), $("#firstName"), $("#lastName"), $("#address"), $("#city"), $("#province"), $("#postCode")];
+
+
+        // function to write new customers to file, as well as update
+        function postReq() {
+            var userData = {
+                cusID: $("#customerNum").val(),
+                fname: $("#firstName").val(),
+                lname: $("#lastName").val(),
+                address: $("#address").val(),
+                city: $("#city").val(),
+                prov: $("#province").val(),
+                postCode: $("#postCode").val()
+            }
+            $.ajax({
+                url: 'http://localhost:1337/submit',
+                type: 'POST',
+                contentType: 'application/json',
+                data: (JSON.stringify(userData)),
+                success: function (data) {
+                    console.log('Response from server:', data);
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error sending request:', errorThrown);
+                }
+            });
+            // clear text boxes
+            for (let i = 0; i < textBox.length; i++) {
+                textBox[i].val('');
+            }
+        };
+
+
+
+        // clears all text boxes
+        $("#new").click(function () {
+            for (let i = 0; i < textBox.length; i++) {
+                textBox[i].val('');
+            }
+        });
+
+
+
+        // deletes user from data folder after verification
+        $("#delete").click(function () {
+            var current = $("#customerNum").val();
+
+            // postCheck is called to see if ID exists first
+            postCheck(current, function (exists) {
+                if (exists === true) {
+                    let check = confirm('Customer #' + current + ' will be removed. Do you wish to proceed?');
+                    // if user verifies the ID to be deleted, post request is made
+                    if (check == true) {
+                        // issue post request to delete this user
+                        var toDelete = {
+                            cusID: current
+                        }
+                        $.ajax({
+                            url: 'http://localhost:1337/delete',
+                            type: 'POST',
+                            contentType: 'application/json',
+                            data: (JSON.stringify(toDelete)),
+                            success: function (data) {
+                                // clear text boxes
+                                for (let i = 0; i < textBox.length; i++) {
+                                    textBox[i].val('');
+                                }
+                                console.log('Response from server:', data);
+                            },
+                            error: function (jqXHR, textStatus, errorThrown) {
+                                console.error('Error sending request:', errorThrown);
+                            }
+                        });
+                        // confirmation the user was removed
+                        alert('Customer #' + toDelete.cusID + ' removed.');
+                    } else {
+                        // if user hits cancel, function stops
+                        return;
+                    }
+                } else {
+                    // user is notified if the ID does not exist.
+                    alert('Customer #' + current + ' not on file.');
+                    for (let i = 0; i < textBox.length; i++) {
+                        textBox[i].val('');
+                    }
+                }
+            })
+        });
+
+
+
+        // adds user to data folder
+        $("#add").click(function () {
+            let current = $("#customerNum").val();
+            // checking if any fields are empty
+            for (let i = 0; i < textBox.length; i++) {
+                if (textBox[i].val().length != 0) {
+                } else {
+                    // if true, alert is shown
+                    alert('Incomplete form, please resubmit.');
+                    return;
+                }
+            }
+            // postCheck called to see if ID exists
+            postCheck(current, function (exists) {
+                if (exists === true) {
+                    // if file path exists, user is prompted to use update
+                    alert('Customer #' + current + ' is already on file. Please use "update" instead.');
+                } else {
+                    // if it does not, postReq is called and ID is added
+                    postReq();
+                    alert('Customer #' + current + ' successfully added to database.');
+                }
+            })
+        });
+
+
+
+        // returns user data based on custID input
+        $("#find").click(function () {
+            let current = $("#customerNum").val();
+            // postCheck is called to see if ID exists first
+            postCheck(current, function (exists) {
+                // if true, another post request is made to display the data
+                if (exists === true) {
+                    var toSearch = {
+                        cusID: $("#customerNum").val()
+                    }
+                    $.ajax({
+                        url: 'http://localhost:1337/read',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: (JSON.stringify(toSearch)),
+                        success: function (data) {
+                            // data is parsed to object, and sent to populate the text boxes
+                            let result = JSON.parse(data);
+                            // clearing out the textboxes first
+                            for (let i = 0; i < textBox.length; i++) {
+                                textBox[i].val('');
+                            }
+                            $("#customerNum").val(result.cusID)
+                            $("#firstName").val(result.fname);
+                            $("#lastName").val(result.lname);
+                            $("#address").val(result.address);
+                            $("#city").val(result.city);
+                            $("#province").val(result.prov);
+                            $("#postCode").val(result.postCode);
+                        },
+                        error: function (jqXHR, textStatus, errorThrown) {
+                            console.error('Error sending request:', errorThrown);
+                        }
+                    });
+                    // if customer does not exist, alert is shown
+                } else {
+                    alert('Customer #' + current + ' is not on file.');
+                    $("#customerNum").val(' ');
+                }
+            })
+        });
+
+
+
+        // updates existing files
+        $("#update").click(function () {
+            let current = $("#customerNum").val();
+            // checking if any fields are empty
+            for (let i = 0; i < textBox.length; i++) {
+                if (textBox[i].val().length != 0) {
+                } else {
+                    // if true, alert is shown
+                    alert('Incomplete form, please resubmit.');
+                    return;
+                }
+            }
+            // post check is used first to see if customer exists
+            postCheck(current, function (exists) {
+                if (exists === true) {
+                    postReq();
+                    alert('Customer #' + current + ' successfully updated.');
+                } else {
+                    // if customer is not yet on file, user is prompted to use add instead
+                    alert('Customer #' + current + ' is not on file. Please use "add" instead.');
+                }
+            });
+        });
+
+
+
+        // function that checks if user exists by testing the file path
+        // returns true if id exists
+        // uses a callback function as a parameter, executed as 'true' when file exists
+        function postCheck(userData, callback) {
+            var userData = {
+                cusID: $("#customerNum").val(),
+            }
+            $.ajax({
+                url: 'http://localhost:1337/verify',
+                type: 'POST',
+                contentType: 'application/json',
+                data: (JSON.stringify(userData)),
+                success: function (data) {
+                    if (data === 'good') {
+                        // callback is true if file exists
+                        callback(true);
+                    } else if (data === 'denied') {
+                        callback(false);
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error sending request:', errorThrown);
+                }
+            })
+        };
+
+    </script>
+</body>
+
+</html>
